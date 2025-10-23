@@ -6,7 +6,8 @@
   "description": "Syncs your FTB Chunks land claims to your BlueMap maps",
   "authors": [
     "Gaming32",
-    "DreamyLynn"
+    "DreamyLynn",
+    "uberswe"
   ],
   "contact": {
     "repo": "https://github.com/GearworksSMP/ftbchunks-bluemap-integration"
