@@ -35,6 +35,8 @@ repositories {
     maven { url 'https://repo.bluecolored.de/releases' }
 
     maven { url = "https://jitpack.io" }
+
+    maven { url = "https://cursemaven.com" }
 }
 
 dependencies {
@@ -49,11 +51,10 @@ dependencies {
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    modImplementation("maven.modrinth:open-parties-and-claims:fabric-1.21-0.23.1")
-    modRuntimeOnly("fuzs.forgeconfigapiport:forgeconfigapiport-fabric:8.0.0") {
-        exclude(group: "net.fabricmc")
-        exclude(group: "net.fabricmc.fabric-api")
-    }
+    // FTB Chunks and dependencies
+    modImplementation("curse.maven:ftb-chunks-fabric-472657:6047799")
+    modImplementation("curse.maven:ftb-teams-fabric-404468:6018831")
+    modImplementation("curse.maven:ftb-library-fabric-438495:6923334")
 
     implementation(de.bluecolored:bluemap-api:2.7.3")
     modRuntimeOnly("maven.modrinth:bluemap:5.2-fabric-1.21")

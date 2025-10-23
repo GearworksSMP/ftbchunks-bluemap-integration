@@ -1,11 +1,11 @@
-package io.github.gaming32.opacbluemapintegration;
+package io.github.gaming32.ftbchunksbluemapintegration;
 
 import org.quiltmc.qup.json.JsonReader;
 import org.quiltmc.qup.json.JsonWriter;
 
 import java.io.IOException;
 
-public class OpacBluemapConfig {
+public class FtbChunksBluemapConfig {
     private int updateInterval = 12000; // Every 10 minutes
     private float markerMinY = 75f;
     private float markerMaxY = 75f;
@@ -21,7 +21,7 @@ public class OpacBluemapConfig {
                 case "markerMaxY" -> markerMaxY = reader.nextNumber().floatValue();
                 case "depthTest" -> depthTest = reader.nextBoolean();
                 default -> {
-                    OpacBluemapIntegration.LOGGER.warn("Unknown OpenPaC BlueMap config key {}. Skipping.", key);
+                    FtbChunksBluemapIntegration.LOGGER.warn("Unknown FTB Chunks BlueMap config key {}. Skipping.", key);
                     reader.skipValue();
                 }
             }

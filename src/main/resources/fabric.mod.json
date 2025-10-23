@@ -1,32 +1,34 @@
 {
   "schemaVersion": 1,
-  "id": "openpac-bluemap-integration-remapped",
+  "id": "ftbchunks-bluemap-integration",
   "version": "${version}",
-  "name": "OpenPaC BlueMap Remapped",
-  "description": "Syncs your Open Parties and Claims land claims to your BlueMap maps",
+  "name": "FTB Chunks BlueMap Integration",
+  "description": "Syncs your FTB Chunks land claims to your BlueMap maps",
   "authors": [
     "Gaming32",
     "DreamyLynn"
   ],
   "contact": {
-    "repo": "https://github.com/DreamyLynn/opac-bluemap-integration"
+    "repo": "https://github.com/GearworksSMP/ftbchunks-bluemap-integration"
   },
   "license": "MIT",
-  "icon": "assets/opac-bluemap-integration/icon.png",
+  "icon": "assets/ftbchunks-bluemap-integration/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
-      "io.github.gaming32.opacbluemapintegration.OpacBluemapIntegration"
+      "io.github.gaming32.ftbchunksbluemapintegration.FtbChunksBluemapIntegration"
     ]
   },
   "mixins": [
-    "opac-bluemap-integration.mixins.json"
+    "ftbchunks-bluemap-integration.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.15.11",
     "fabric": "*",
     "minecraft": ">=1.21",
     "bluemap": ">=5.2",
-    "openpartiesandclaims": ">=0.23.1"
+    "ftbchunks": "*",
+    "ftbteams": "*",
+    "ftblibrary": "*"
   }
 }

@@ -1,4 +1,4 @@
-package io.github.gaming32.opacbluemapintegration;
+package io.github.gaming32.ftbchunksbluemapintegration;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -10,6 +10,10 @@ import de.bluecolored.bluemap.api.markers.Marker;
 import de.bluecolored.bluemap.api.markers.MarkerSet;
 import de.bluecolored.bluemap.api.markers.ShapeMarker;
 import de.bluecolored.bluemap.api.math.Color;
+import dev.ftb.mods.ftbchunks.api.FTBChunksAPI;
+import dev.ftb.mods.ftbchunks.api.ClaimedChunk;
+import dev.ftb.mods.ftbteams.api.FTBTeamsAPI;
+import dev.ftb.mods.ftbteams.api.Team;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -20,6 +24,7 @@ import net.minecraft.commands.arguments.TimeArgument;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
@@ -27,8 +32,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.quiltmc.qup.json.JsonReader;
 import org.quiltmc.qup.json.JsonWriter;
 import org.slf4j.Logger;
-import xaero.pac.common.claims.player.api.IPlayerClaimPosListAPI;
-import xaero.pac.common.server.api.OpenPACServerAPI;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -37,13 +40,13 @@ import java.util.stream.Collectors;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
-public class OpacBluemapIntegration implements ModInitializer {
+public class FtbChunksBluemapIntegration implements ModInitializer {
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final String MARKER_SET_KEY = "opac-bluemap-integration";
-    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("opac-bluemap.json5");
+    private static final String MARKER_SET_KEY = "ftbchunks-bluemap-integration";
+    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("ftbchunks-bluemap.json5");
 
-    public static final OpacBluemapConfig CONFIG = new OpacBluemapConfig();
+    public static final FtbChunksBluemapConfig CONFIG = new FtbChunksBluemapConfig();
 
     private static MinecraftServer minecraftServer;
 
@@ -52,10 +55,10 @@ public class OpacBluemapIntegration implements ModInitializer {
     @Override
     public void onInitialize() {
         loadConfig();
-        BlueMapAPI.onEnable(OpacBluemapIntegration::updateClaims);
+        BlueMapAPI.onEnable(FtbChunksBluemapIntegration::updateClaims);
         ServerLifecycleEvents.SERVER_STARTING.register(server -> minecraftServer = server);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> minecraftServer = null);
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(literal("openpac-bluemap")
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(literal("ftbchunks-bluemap")
             .requires(s -> s.hasPermission(2))
             .then(literal("refresh-now")
                 .requires(s -> BlueMapAPI.getInstance().isPresent())
@@ -67,7 +70,7 @@ public class OpacBluemapIntegration implements ModInitializer {
                     }
                     updateClaims(api);
                     ctx.getSource().sendSuccess(
-                            () -> Component.literal("BlueMap OpenPaC claims refreshed").withStyle(ChatFormatting.GREEN),
+                            () -> Component.literal("BlueMap FTB Chunks claims refreshed").withStyle(ChatFormatting.GREEN),
                         true
                     );
                     return Command.SINGLE_SUCCESS;
@@ -75,7 +78,7 @@ public class OpacBluemapIntegration implements ModInitializer {
             )
             .then(literal("refresh-in")
                 .executes(ctx -> {
-                    ctx.getSource().sendSuccess(() -> Component.literal("OpenPaC BlueMap will refresh in ").append(
+                    ctx.getSource().sendSuccess(() -> Component.literal("FTB Chunks BlueMap will refresh in ").append(
                                 Component.literal((updateIn / 20) + "s").withStyle(ChatFormatting.GREEN)
                         ),
                         true
@@ -86,7 +89,7 @@ public class OpacBluemapIntegration implements ModInitializer {
                     .executes(ctx -> {
                         updateIn = IntegerArgumentType.getInteger(ctx, "time");
                         ctx.getSource().sendSuccess(
-                                () -> Component.literal("OpenPaC BlueMap will refresh in ").append(
+                                () -> Component.literal("FTB Chunks BlueMap will refresh in ").append(
                                 Component.literal((updateIn / 20) + "s").withStyle(ChatFormatting.GREEN)
                             ),
                             true
@@ -98,7 +101,7 @@ public class OpacBluemapIntegration implements ModInitializer {
             .then(literal("refresh-every")
                 .executes(ctx -> {
                     ctx.getSource().sendSuccess(
-                            () -> Component.literal("OpenPaC BlueMap auto refreshes every ").append(
+                            () -> Component.literal("FTB Chunks BlueMap auto refreshes every ").append(
                             Component.literal((CONFIG.getUpdateInterval() / 20) + "s").withStyle(ChatFormatting.GREEN)
                         ),
                         true
@@ -114,7 +117,7 @@ public class OpacBluemapIntegration implements ModInitializer {
                         }
                         saveConfig();
                         ctx.getSource().sendSuccess(
-                                () -> Component.literal("OpenPaC BlueMap will auto refresh every ").append(
+                                () -> Component.literal("FTB Chunks BlueMap will auto refresh every ").append(
                                 Component.literal((interval / 20) + "s").withStyle(ChatFormatting.GREEN)
                             ),
                             true
@@ -130,7 +133,7 @@ public class OpacBluemapIntegration implements ModInitializer {
                         updateIn = CONFIG.getUpdateInterval();
                     }
                     ctx.getSource().sendSuccess(
-                            () -> Component.literal("Reloaded OpenPaC BlueMap config").withStyle(ChatFormatting.GREEN),
+                            () -> Component.literal("Reloaded FTB Chunks BlueMap config").withStyle(ChatFormatting.GREEN),
                         true
                     );
                     return Command.SINGLE_SUCCESS;
@@ -140,7 +143,7 @@ public class OpacBluemapIntegration implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (updateIn <= 0) return;
             if (--updateIn <= 0) {
-                BlueMapAPI.getInstance().ifPresent(OpacBluemapIntegration::updateClaims);
+                BlueMapAPI.getInstance().ifPresent(FtbChunksBluemapIntegration::updateClaims);
             }
         });
     }
@@ -160,7 +163,7 @@ public class OpacBluemapIntegration implements ModInitializer {
         } catch (Exception e) {
             LOGGER.error("Failed to write {}.", CONFIG_FILE, e);
         }
-        LOGGER.info("Saved OpenPaC BlueMap config");
+        LOGGER.info("Saved FTB Chunks BlueMap config");
     }
 
     public static void updateClaims(BlueMapAPI blueMap) {
@@ -168,64 +171,84 @@ public class OpacBluemapIntegration implements ModInitializer {
             LOGGER.warn("updateClaims called with minecraftServer == null!");
             return;
         }
-        LOGGER.info("Refreshing OpenPaC BlueMap markers");
-        OpenPACServerAPI.get(minecraftServer)
-            .getServerClaimsManager()
-            .getPlayerInfoStream()
-            .forEach(playerClaimInfo -> {
-                String name = playerClaimInfo.getClaimsName();
-                final String idName;
-                if (StringUtils.isBlank(name)) {
-                    idName = name = playerClaimInfo.getPlayerUsername();
-                    if (name.length() > 2 && name.charAt(0) == '"' && name.charAt(name.length() - 1) == '"') {
-                        name = name.substring(1, name.length() - 1) + " claim";
-                    } else {
-                        name += "'s claim";
-                    }
-                } else {
-                    idName = name;
+        LOGGER.info("Refreshing FTB Chunks BlueMap markers");
+
+        try {
+            final var manager = FTBChunksAPI.api().getManager();
+            if (manager == null) {
+                LOGGER.warn("FTB Chunks manager is null!");
+                return;
+            }
+
+            FTBTeamsAPI.api().getManager().getTeams().forEach(team -> {
+                if (team.isPlayerTeam()) {
+                    return; // Skip individual player teams that are not parties
                 }
-                final String displayName = name;
-                playerClaimInfo.getStream().forEach(entry -> {
-                    final BlueMapWorld world = blueMap.getWorld(ResourceKey.create(Registries.DIMENSION, entry.getKey())).orElse(null);                    if (world == null) return;
-                    final List<ShapeHolder> shapes = createShapes(
-                        entry.getValue()
-                            .getStream()
-                            .flatMap(IPlayerClaimPosListAPI::getStream)
-                            .collect(Collectors.toSet())
+
+                final var teamData = manager.getTeamData(team.getId());
+                if (teamData == null) {
+                    return;
+                }
+
+                String name = team.getShortName();
+                final String idName = team.getId().toString();
+                final String displayName = StringUtils.isBlank(name) ? "Team " + team.getShortName() : name;
+
+                // Group chunks by dimension
+                Map<ResourceKey<net.minecraft.world.level.Level>, Set<ChunkPos>> chunksByDimension = new HashMap<>();
+
+                for (ClaimedChunk claimedChunk : teamData.getClaimedChunks()) {
+                    ResourceKey<net.minecraft.world.level.Level> dimension = ResourceKey.create(
+                        Registries.DIMENSION,
+                        new ResourceLocation(claimedChunk.getPos().dimension().location().getNamespace(),
+                                           claimedChunk.getPos().dimension().location().getPath())
                     );
+
+                    ChunkPos chunkPos = new ChunkPos(claimedChunk.getPos().x(), claimedChunk.getPos().z());
+                    chunksByDimension.computeIfAbsent(dimension, k -> new HashSet<>()).add(chunkPos);
+                }
+
+                // Process each dimension
+                chunksByDimension.forEach((dimension, chunks) -> {
+                    final BlueMapWorld world = blueMap.getWorld(dimension).orElse(null);
+                    if (world == null) return;
+
+                    final List<ShapeHolder> shapes = createShapes(chunks);
                     world.getMaps().forEach(map -> {
                         final Map<String, Marker> markers = map
                             .getMarkerSets()
                             .computeIfAbsent(MARKER_SET_KEY, k ->
                                 MarkerSet.builder()
                                     .toggleable(true)
-                                    .label("Open Parties and Claims")
+                                    .label("FTB Chunks")
                                     .build()
                             )
                             .getMarkers();
                         final float minY = CONFIG.getMarkerMinY();
                         final float maxY = CONFIG.getMarkerMaxY();
-                        //noinspection SuspiciousNameCombination
                         final boolean flatPlane = Mth.equal(minY, maxY);
+
                         markers.keySet().removeIf(k -> k.startsWith(idName + "---"));
+
+                        // Get team color
+                        int teamColor = team.getColor().getColorValue();
+
                         for (int i = 0; i < shapes.size(); i++) {
                             final ShapeHolder shape = shapes.get(i);
                             markers.put(idName + "---" + i,
-                                // Yes these builders are the same. No they don't share a superclass (except for label).
                                 flatPlane
                                     ? ShapeMarker.builder()
                                         .label(displayName)
-                                        .fillColor(new Color(playerClaimInfo.getClaimsColor(), 102))
-                                        .lineColor(new Color(playerClaimInfo.getClaimsColor(), 255))
+                                        .fillColor(new Color(teamColor, 102))
+                                        .lineColor(new Color(teamColor, 255))
                                         .shape(shape.baseShape(), minY)
                                         .holes(shape.holes())
                                         .depthTestEnabled(CONFIG.isDepthTest())
                                         .build()
                                     : ExtrudeMarker.builder()
                                         .label(displayName)
-                                        .fillColor(new Color(playerClaimInfo.getClaimsColor(), 102))
-                                        .lineColor(new Color(playerClaimInfo.getClaimsColor(), 255))
+                                        .fillColor(new Color(teamColor, 102))
+                                        .lineColor(new Color(teamColor, 255))
                                         .shape(shape.baseShape(), minY, maxY)
                                         .holes(shape.holes())
                                         .depthTestEnabled(CONFIG.isDepthTest())
@@ -235,7 +258,12 @@ public class OpacBluemapIntegration implements ModInitializer {
                     });
                 });
             });
-        LOGGER.info("Refreshed OpenPaC BlueMap markers");
+
+            LOGGER.info("Refreshed FTB Chunks BlueMap markers");
+        } catch (Exception e) {
+            LOGGER.error("Error updating FTB Chunks claims", e);
+        }
+
         updateIn = CONFIG.getUpdateInterval();
     }
 

@@ -1,4 +1,4 @@
-package io.github.gaming32.opacbluemapintegration;
+package io.github.gaming32.ftbchunksbluemapintegration;
 
 import com.flowpowered.math.vector.Vector2d;
 import de.bluecolored.bluemap.api.math.Shape;
@@ -12,7 +12,7 @@ public record ShapeHolder(Shape baseShape, Shape... holes) {
     public static ShapeHolder create(Set<ChunkPos> chunks) {
         return new ShapeHolder(
             createBaseShape(chunks),
-            OpacBluemapIntegration.createChunkGroups(cutoutChunks(chunks))
+            FtbChunksBluemapIntegration.createChunkGroups(cutoutChunks(chunks))
                 .stream()
                 .map(ShapeHolder::createBaseShape)
                 .toArray(Shape[]::new)
