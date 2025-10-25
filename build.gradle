@@ -36,7 +36,9 @@ repositories {
 
     maven { url = "https://jitpack.io" }
 
-    maven { url = "https://cursemaven.com" }
+    flatDir {
+        dirs 'jars'
+    }
 }
 
 dependencies {
@@ -44,20 +46,20 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings(loom.layered {
         officialMojangMappings()
-        parchment("org.parchmentmc.data:parchment-1.21:2024.07.28@zip")
+        parchment("org.parchmentmc.data:parchment-1.20.1:2023.09.03@zip")
     })
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // FTB Chunks and dependencies
-    modImplementation("curse.maven:ftb-chunks-fabric-472657:6047799")
-    modImplementation("curse.maven:ftb-teams-fabric-404468:6018831")
-    modImplementation("curse.maven:ftb-library-fabric-438495:6923334")
+    // FTB Chunks and dependencies (from local jars folder)
+    modImplementation files('jars/ftb-chunks-fabric-2001.3.6.jar')
+    modImplementation files('jars/ftb-teams-fabric-2001.3.1.jar')
+    modImplementation files('jars/ftb-library-fabric-2001.2.9.jar')
 
-    implementation(de.bluecolored:bluemap-api:2.7.3")
-    modRuntimeOnly("maven.modrinth:bluemap:5.2-fabric-1.21")
+    implementation("de.bluecolored:bluemap-api:2.7.3")
+    modRuntimeOnly("maven.modrinth:bluemap:3.20-fabric-1.20")
 
     include(implementation("org.quiltmc.qup:json:0.2.0"))
 }

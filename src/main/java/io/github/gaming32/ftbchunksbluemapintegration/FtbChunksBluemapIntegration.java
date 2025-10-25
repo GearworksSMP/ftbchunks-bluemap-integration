@@ -14,6 +14,7 @@ import dev.ftb.mods.ftbchunks.api.FTBChunksAPI;
 import dev.ftb.mods.ftbchunks.api.ClaimedChunk;
 import dev.ftb.mods.ftbteams.api.FTBTeamsAPI;
 import dev.ftb.mods.ftbteams.api.Team;
+import dev.ftb.mods.ftbteams.api.property.TeamProperties;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -181,40 +182,50 @@ public class FtbChunksBluemapIntegration implements ModInitializer {
             }
 
             FTBTeamsAPI.api().getManager().getTeams().forEach(team -> {
-                if (team.isPlayerTeam()) {
-                    return; // Skip individual player teams that are not parties
-                }
-
-                final var teamData = manager.getTeamData(team.getId());
+                final var teamData = manager.getOrCreateData(team);
                 if (teamData == null) {
                     return;
+                }
+
+                // Check if team has any claimed chunks
+                var claimedChunks = teamData.getClaimedChunks();
+                if (claimedChunks.isEmpty()) {
+                    return; // Skip teams with no claims
                 }
 
                 String name = team.getShortName();
                 final String idName = team.getId().toString();
                 final String displayName = StringUtils.isBlank(name) ? "Team " + team.getShortName() : name;
 
+                LOGGER.info("Processing team: {} (ID: {}) with {} claimed chunks", displayName, idName, claimedChunks.size());
+
                 // Group chunks by dimension
                 Map<ResourceKey<net.minecraft.world.level.Level>, Set<ChunkPos>> chunksByDimension = new HashMap<>();
 
-                for (ClaimedChunk claimedChunk : teamData.getClaimedChunks()) {
-                    ResourceKey<net.minecraft.world.level.Level> dimension = ResourceKey.create(
-                        Registries.DIMENSION,
-                        new ResourceLocation(claimedChunk.getPos().dimension().location().getNamespace(),
-                                           claimedChunk.getPos().dimension().location().getPath())
-                    );
+                for (ClaimedChunk claimedChunk : claimedChunks) {
+                    var chunkDimPos = claimedChunk.getPos();
+                    ResourceKey<net.minecraft.world.level.Level> dimension = chunkDimPos.dimension();
 
-                    ChunkPos chunkPos = new ChunkPos(claimedChunk.getPos().x(), claimedChunk.getPos().z());
+                    ChunkPos chunkPos = new ChunkPos(chunkDimPos.x(), chunkDimPos.z());
                     chunksByDimension.computeIfAbsent(dimension, k -> new HashSet<>()).add(chunkPos);
                 }
 
                 // Process each dimension
                 chunksByDimension.forEach((dimension, chunks) -> {
                     final BlueMapWorld world = blueMap.getWorld(dimension).orElse(null);
-                    if (world == null) return;
+                    if (world == null) {
+                        LOGGER.warn("BlueMap world not found for dimension: {}", dimension);
+                        return;
+                    }
 
+                    LOGGER.info("Creating shapes for {} chunks in dimension {}", chunks.size(), dimension.location());
+                    long startTime = System.currentTimeMillis();
                     final List<ShapeHolder> shapes = createShapes(chunks);
+                    long elapsedTime = System.currentTimeMillis() - startTime;
+                    LOGGER.info("Created {} shape(s) for team {} in {}ms", shapes.size(), displayName, elapsedTime);
+
                     world.getMaps().forEach(map -> {
+                        LOGGER.info("Adding markers to map: {}", map.getId());
                         final Map<String, Marker> markers = map
                             .getMarkerSets()
                             .computeIfAbsent(MARKER_SET_KEY, k ->
@@ -231,11 +242,12 @@ public class FtbChunksBluemapIntegration implements ModInitializer {
                         markers.keySet().removeIf(k -> k.startsWith(idName + "---"));
 
                         // Get team color
-                        int teamColor = team.getColor().getColorValue();
+                        int teamColor = team.getProperty(TeamProperties.COLOR).rgb();
 
                         for (int i = 0; i < shapes.size(); i++) {
                             final ShapeHolder shape = shapes.get(i);
-                            markers.put(idName + "---" + i,
+                            final String markerId = idName + "---" + i;
+                            markers.put(markerId,
                                 flatPlane
                                     ? ShapeMarker.builder()
                                         .label(displayName)
@@ -254,7 +266,9 @@ public class FtbChunksBluemapIntegration implements ModInitializer {
                                         .depthTestEnabled(CONFIG.isDepthTest())
                                         .build()
                             );
+                            LOGGER.debug("Added marker {} for team {}", markerId, displayName);
                         }
+                        LOGGER.info("Added {} markers for team {} on map {}", shapes.size(), displayName, map.getId());
                     });
                 });
             });
@@ -268,18 +282,31 @@ public class FtbChunksBluemapIntegration implements ModInitializer {
     }
 
     public static List<ShapeHolder> createShapes(Set<ChunkPos> chunks) {
-        return createChunkGroups(chunks)
-            .stream()
-            .map(ShapeHolder::create)
-            .toList();
+        LOGGER.info("createShapes: Starting with {} chunks", chunks.size());
+        long startGroups = System.currentTimeMillis();
+        List<Set<ChunkPos>> groups = createChunkGroups(chunks);
+        LOGGER.info("createChunkGroups: Created {} groups in {}ms", groups.size(), System.currentTimeMillis() - startGroups);
+
+        List<ShapeHolder> shapes = new ArrayList<>();
+        for (int i = 0; i < groups.size(); i++) {
+            long startShape = System.currentTimeMillis();
+            LOGGER.info("Creating ShapeHolder for group {} with {} chunks", i, groups.get(i).size());
+            ShapeHolder shape = ShapeHolder.create(groups.get(i));
+            LOGGER.info("ShapeHolder {} created in {}ms", i, System.currentTimeMillis() - startShape);
+            shapes.add(shape);
+        }
+        return shapes;
     }
 
     public static List<Set<ChunkPos>> createChunkGroups(Set<ChunkPos> chunks) {
         final List<Set<ChunkPos>> result = new ArrayList<>();
         final Set<ChunkPos> visited = new HashSet<>();
+        int groupNum = 0;
         for (final ChunkPos chunk : chunks) {
             if (visited.contains(chunk)) continue;
+            long startFind = System.currentTimeMillis();
             final Set<ChunkPos> neighbors = findNeighbors(chunk, chunks);
+            LOGGER.info("Found group {} with {} chunks in {}ms", groupNum++, neighbors.size(), System.currentTimeMillis() - startFind);
             result.add(neighbors);
             visited.addAll(neighbors);
         }
